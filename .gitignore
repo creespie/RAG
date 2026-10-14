@@ -32,3 +32,4 @@ htmlcov/
 
 # Variabili d'ambiente
 .env
+CLAUDE.md
