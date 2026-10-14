@@ -1,0 +1,34 @@
+# Dati (corpus, dataset, indice, output)
+data/
+
+# Moulinette
+moulinette
+moulinette-ubuntu
+moulinette-fedora
+
+# Ambiente virtuale
+.venv/
+venv/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Strumenti
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editor e sistema
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Variabili d'ambiente
+.env
