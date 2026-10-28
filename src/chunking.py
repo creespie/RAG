@@ -60,3 +60,70 @@ def python_chunking(text:str, path: str, max_len: int = 2000) -> list[Chunk]:
         start_index, temp_chunks = chunk_by_lines(lines[start:], path, start_index, max_len)
         chunks.extend(temp_chunks)
     return chunks
+
+def is_title(text: str, level: int = 2) -> bool:
+    i = 0
+    spaces = 0
+    lev = 0
+    while i < len(text):
+        if lev == 0 and text[i] == " ":
+            if spaces > 2:
+                return False
+            spaces += 1
+            i += 1
+        elif text[i] == "#":
+            if lev >= level:
+                return False
+            lev += 1
+            i += 1
+        elif lev > 0 and text[i] in (" ", "\t"):
+            return True
+        else:
+            return False
+    return False
+
+
+def split_titles(lines: list[str], level: int = 2) -> list[int]:
+    ends = []
+    text = False
+    comment_tide = False
+    comment_ap = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith("```") and not (comment_tide or comment_ap):
+            comment_ap = True
+            text = True
+        elif line.strip().startswith("~~~") and not (comment_tide or comment_ap):
+            comment_tide = True
+            text = True
+        elif comment_tide:
+            if line.strip() == "~~~":
+                comment_tide = False
+        elif comment_ap:
+            if line.strip() == "```":
+                comment_ap = False
+        elif is_title(line, level):
+            if text:
+                text = False
+                ends.append(i)
+        elif line.strip() and not text:
+            text = True
+
+    return ends
+
+
+
+def md_chunking(text: str, path: str, max_len: int, level: int = 2):
+    lines = split_lines(text)
+    title_tree = split_titles(lines, level)
+    chunks = []
+    start = 0
+    start_index = 0
+    for node in title_tree:
+            start_index, temp_chunks = chunk_by_lines(lines[start:node], path, start_index, max_len)
+            chunks.extend(temp_chunks)
+            start = node
+    if start < len(lines):
+        start_index, temp_chunks = chunk_by_lines(lines[start:], path, start_index, max_len)
+        chunks.extend(temp_chunks)
+    return chunks
+
