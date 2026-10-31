@@ -71,7 +71,7 @@ def run_index(input_path, ouput_path, max_chunk_size, k1 = 1.2, b = 0.75):
     chunks, words = build_chunks(input_path, max_chunk_size)
     retriever = build_bm25_index(k1, b, words)
     save_index(retriever, chunks, ouput_path)
-    print(f"Ingestion complete! Indexed {len(chunks)} chunks under {input_path}")
+    print(f"Ingestion complete! Indexed {len(chunks)} chunks under {ouput_path}")
 
 
 if __name__ == "__main__":
