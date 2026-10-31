@@ -1,3 +1,22 @@
+STOPWORDS: frozenset[str] = frozenset({
+    "a", "about", "after", "all", "also", "an", "any", "are", "at",
+    "be", "been", "being", "but", "by",
+    "can", "could",
+    "did", "do", "does", "doing",
+    "each", "explain",
+    "had", "has", "have", "having", "he", "her", "here", "his", "how",
+    "i", "into", "it", "its", "itself",
+    "me", "more", "most", "my",
+    "of", "on", "only", "other", "our", "over",
+    "s", "she", "should", "so", "some", "such",
+    "t", "tell", "than", "that", "the", "their", "them", "then",
+    "there", "these", "they", "this", "those", "through", "to",
+    "very",
+    "was", "we", "were", "what", "when", "where", "which", "who",
+    "whom", "why", "will", "would",
+    "you", "your",
+})
+
 def camel_to_words(st: str) -> list[str]:
     if not st:
         return []
