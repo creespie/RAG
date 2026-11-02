@@ -1,18 +1,30 @@
 from .models import Chunk, IndexData
 from .corpus import file_list, read_file
-from .chunking import md_chunking, python_chunking
+from .chunking import md_chunking, python_chunking, chunk_by_lines, split_lines
 from .tokenizer import chunk_splitter
 from tqdm import tqdm
 import time
 import bm25s
 from pathlib import Path
 from pydantic import ValidationError
+from .headings import heading_context
 
 
-def chunks_to_words(chnks, complete_test):
+
+def chunks_to_words(chnks: list[Chunk], complete_text: str,
+                    path: str) -> list[list[str]]:
+    """Tokenize each chunk, adding the words of its path and headings."""
+    if path.lower().endswith(".md"):
+        contexts = heading_context(complete_text, chnks)
+    else:
+        contexts = [""] * len(chnks)
+    path_words = chunk_splitter(path)
     words_list = []
-    for chunk in chnks:
-        words_list.append(chunk_splitter(complete_test[chunk.first_character_index:chunk.last_character_index]))
+    for chunk, context in zip(chnks, contexts):
+        text = complete_text[chunk.first_character_index:
+                             chunk.last_character_index]
+        words_list.append(chunk_splitter(text) + path_words
+                          + chunk_splitter(context))
     return words_list
 
 
@@ -28,12 +40,12 @@ def build_chunks(source: str, max_len: int) -> list[Chunk]:
             continue
         if file.lower().endswith(".py"):
             tmp = python_chunking(current, file, max_len)
-            chunks.extend(tmp)
-            words.extend(chunks_to_words(tmp, current))
-        else:
+        elif file.lower().endswith(".md"):
             tmp = md_chunking(current, file, max_len)
-            chunks.extend(tmp)
-            words.extend(chunks_to_words(tmp, current))
+        else:
+            _, tmp = chunk_by_lines(split_lines(current), file, 0, max_len)
+        chunks.extend(tmp)
+        words.extend(chunks_to_words(tmp, current, file))
     return chunks, words
 
 

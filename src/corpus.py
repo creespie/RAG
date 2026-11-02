@@ -6,7 +6,7 @@ def file_list(location: str = "data/raw/") -> list[str]:
     for file in path.rglob("*"):
         if any(section.startswith(".") for section in file.relative_to(location).parts):
             continue
-        if file.suffix.lower() in (".py", ".md") and file.is_file():
+        if file.suffix.lower() in (".py", ".md", ".txt") and file.is_file():
             valid_files.append(file.as_posix())
 
     valid_files.sort()
