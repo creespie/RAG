@@ -3,8 +3,13 @@
 import sys
 from collections import Counter
 
-from .models import (AnsweredQuestion, MinimalSearchResults, MinimalSource,
-                     RagDataset, StudentSearchResults)
+from .models import (
+    AnsweredQuestion,
+    MinimalSearchResults,
+    MinimalSource,
+    RagDataset,
+    StudentSearchResults,
+)
 
 IOU_THRESHOLD = 0.05
 
@@ -23,11 +28,16 @@ def iou(a: MinimalSource, b: MinimalSource) -> float:
     """
     if a.file_path != b.file_path:
         return 0.0
-    inter = max(0, min(a.last_character_index, b.last_character_index)
-                - max(a.first_character_index, b.first_character_index))
-    union = ((a.last_character_index - a.first_character_index)
-             + (b.last_character_index - b.first_character_index)
-             - inter)
+    inter = max(
+        0,
+        min(a.last_character_index, b.last_character_index)
+        - max(a.first_character_index, b.first_character_index),
+    )
+    union = (
+        (a.last_character_index - a.first_character_index)
+        + (b.last_character_index - b.first_character_index)
+        - inter
+    )
     return inter / union if union > 0 else 0.0
 
 
@@ -36,8 +46,9 @@ def best_iou(expected: MinimalSource, found: list[MinimalSource]) -> float:
     return max((iou(expected, f) for f in found), default=0.0)
 
 
-def question_recall(found: list[MinimalSource],
-                    expected: list[MinimalSource], k: int) -> float:
+def question_recall(
+    found: list[MinimalSource], expected: list[MinimalSource], k: int
+) -> float:
     """Return the share of expected sources found in the first k results.
 
     Args:
@@ -55,8 +66,9 @@ def question_recall(found: list[MinimalSource],
     return hits / len(expected)
 
 
-def pair_questions(results: StudentSearchResults, dataset: RagDataset
-                   ) -> list[tuple[AnsweredQuestion, MinimalSearchResults]]:
+def pair_questions(
+    results: StudentSearchResults, dataset: RagDataset
+) -> list[tuple[AnsweredQuestion, MinimalSearchResults]]:
     """Match each answered question with its search result, by id."""
     by_id = {r.question_id: r for r in results.search_results}
     pairs = []
@@ -68,17 +80,20 @@ def pair_questions(results: StudentSearchResults, dataset: RagDataset
     return pairs
 
 
-def recall_at_k(pairs: list[tuple[AnsweredQuestion, MinimalSearchResults]],
-                k: int) -> float:
+def recall_at_k(
+    pairs: list[tuple[AnsweredQuestion, MinimalSearchResults]], k: int
+) -> float:
     """Return the average recall@k over all the paired questions."""
     if not pairs:
         return 0.0
-    return sum(question_recall(r.retrieved_sources, q.sources, k)
-               for q, r in pairs) / len(pairs)
+    return sum(
+        question_recall(r.retrieved_sources, q.sources, k) for q, r in pairs
+    ) / len(pairs)
 
 
-def load_pairs(results_path: str, dataset_path: str
-               ) -> list[tuple[AnsweredQuestion, MinimalSearchResults]]:
+def load_pairs(
+    results_path: str, dataset_path: str
+) -> list[tuple[AnsweredQuestion, MinimalSearchResults]]:
     """Read a results file and a ground-truth dataset and pair them."""
     with open(results_path, encoding="utf-8") as f:
         results = StudentSearchResults.model_validate_json(f.read())
@@ -90,8 +105,10 @@ def load_pairs(results_path: str, dataset_path: str
 def span(s: MinimalSource) -> str:
     """Format a source as 'path [start:end] (length)'."""
     length = s.last_character_index - s.first_character_index
-    return (f"{s.file_path} [{s.first_character_index}:"
-            f"{s.last_character_index}] ({length} chars)")
+    return (
+        f"{s.file_path} [{s.first_character_index}:"
+        f"{s.last_character_index}] ({length} chars)"
+    )
 
 
 def diagnose(results_path: str, dataset_path: str, k: int = 5,
@@ -109,20 +126,33 @@ def diagnose(results_path: str, dataset_path: str, k: int = 5,
     for cut in (1, 3, 5, 10):
         print(f"Recall@{cut}: {recall_at_k(pairs, cut):.3f}")
 
-    expected_lengths = [s.last_character_index - s.first_character_index
-                        for q, _ in pairs for s in q.sources]
-    found_lengths = [s.last_character_index - s.first_character_index
-                     for _, r in pairs for s in r.retrieved_sources[:k]]
-    extensions = Counter(s.file_path.rsplit(".", 1)[-1]
-                         for _, r in pairs for s in r.retrieved_sources[:k])
+    expected_lengths = [
+        s.last_character_index - s.first_character_index
+        for q, _ in pairs
+        for s in q.sources
+    ]
+    found_lengths = [
+        s.last_character_index - s.first_character_index
+        for _, r in pairs
+        for s in r.retrieved_sources[:k]
+    ]
+    extensions = Counter(
+        s.file_path.rsplit(".", 1)[-1]
+        for _, r in pairs
+        for s in r.retrieved_sources[:k]
+    )
     print("\n--- Statistics ---")
-    print(f"Expected sources: {len(expected_lengths)}, average length "
-          f"{sum(expected_lengths) / max(1, len(expected_lengths)):.0f}, "
-          f"min {min(expected_lengths, default=0)}, "
-          f"max {max(expected_lengths, default=0)}")
-    print(f"My top-{k} results: average length "
-          f"{sum(found_lengths) / max(1, len(found_lengths)):.0f}, "
-          f"by extension {dict(extensions)}")
+    print(
+        f"Expected sources: {len(expected_lengths)}, average length "
+        f"{sum(expected_lengths) / max(1, len(expected_lengths)):.0f}, "
+        f"min {min(expected_lengths, default=0)}, "
+        f"max {max(expected_lengths, default=0)}"
+    )
+    print(
+        f"My top-{k} results: average length "
+        f"{sum(found_lengths) / max(1, len(found_lengths)):.0f}, "
+        f"by extension {dict(extensions)}"
+    )
 
     # Classify every expected source that was missed in the top-k.
     reasons: Counter[str] = Counter()
@@ -149,8 +179,10 @@ def diagnose(results_path: str, dataset_path: str, k: int = 5,
     for reason, count in reasons.most_common():
         print(f"{count:4d}  {reason}")
 
-    print(f"\n--- First {min(show, len(failed))} failed questions "
-          f"of {len(failed)} ---")
+    print(
+        f"\n--- First {min(show, len(failed))} failed questions "
+        f"of {len(failed)} ---"
+    )
     for q, r, missed in failed[:show]:
         print("\n" + "=" * 70)
         print(f"Q: {q.question}")
@@ -163,12 +195,17 @@ def diagnose(results_path: str, dataset_path: str, k: int = 5,
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python -m src.evaluation <results.json> "
-              "<answered_dataset.json> [k] [show]")
+        print(
+            "Usage: python -m src.evaluation <results.json> "
+            "<answered_dataset.json> [k] [show]"
+        )
         sys.exit(1)
     try:
-        diagnose(sys.argv[1], sys.argv[2],
-                 int(sys.argv[3]) if len(sys.argv) > 3 else 5,
-                 int(sys.argv[4]) if len(sys.argv) > 4 else 15)
+        diagnose(
+            sys.argv[1],
+            sys.argv[2],
+            int(sys.argv[3]) if len(sys.argv) > 3 else 5,
+            int(sys.argv[4]) if len(sys.argv) > 4 else 15,
+        )
     except (OSError, ValueError) as error:
         print(f"Error: {error}")

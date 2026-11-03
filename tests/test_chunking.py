@@ -42,8 +42,9 @@ def check_coverage(text: str, chunks: list[Chunk], max_len: int) -> None:
     assert chunks[0].first_character_index == 0
     assert chunks[-1].last_character_index == len(text)
     for previous, current in zip(chunks, chunks[1:]):
-        assert current.first_character_index == \
-            previous.last_character_index, "gap or overlap between chunks"
+        assert (
+            current.first_character_index == previous.last_character_index
+        ), "gap or overlap between chunks"
     for c in chunks:
         length = c.last_character_index - c.first_character_index
         assert 0 < length <= max_len, f"bad chunk length {length}"
@@ -52,6 +53,7 @@ def check_coverage(text: str, chunks: list[Chunk], max_len: int) -> None:
 
 
 # --- split_lines ---------------------------------------------------------
+
 
 def test_split_lines_keeps_newlines() -> None:
     assert split_lines("aaa\nbbbb\ncc") == ["aaa\n", "bbbb\n", "cc"]
@@ -64,11 +66,11 @@ def test_split_lines_rebuilds_text() -> None:
 
 # --- chunk_by_lines ------------------------------------------------------
 
+
 def test_chunk_by_lines_groups_lines() -> None:
     text = "aaa\nbbbb\ncc"
     end, chunks = chunk_by_lines(split_lines(text), PATH, 0, 5)
-    spans = [(c.first_character_index, c.last_character_index)
-             for c in chunks]
+    spans = [(c.first_character_index, c.last_character_index) for c in chunks]
     assert spans == [(0, 4), (4, 9), (9, 11)]
     assert end == 11
 
@@ -76,8 +78,7 @@ def test_chunk_by_lines_groups_lines() -> None:
 def test_chunk_by_lines_splits_long_line() -> None:
     text = "abcdefghijkl"
     _, chunks = chunk_by_lines(split_lines(text), PATH, 0, 5)
-    spans = [(c.first_character_index, c.last_character_index)
-             for c in chunks]
+    spans = [(c.first_character_index, c.last_character_index) for c in chunks]
     assert spans == [(0, 5), (5, 10), (10, 12)]
 
 
@@ -94,6 +95,7 @@ def test_chunk_by_lines_empty_input() -> None:
 
 
 # --- python_chunking -----------------------------------------------------
+
 
 def test_python_example_one_chunk_per_node() -> None:
     chunks = python_chunking(EXAMPLE, PATH)
@@ -116,8 +118,8 @@ def test_python_decorator_stays_with_function() -> None:
 
 def test_python_small_max_len() -> None:
     for max_len in [1, 5, 20, 50]:
-        check_coverage(EXAMPLE, python_chunking(EXAMPLE, PATH, max_len),
-                       max_len)
+        chunks = python_chunking(EXAMPLE, PATH, max_len)
+        check_coverage(EXAMPLE, chunks, max_len)
 
 
 def test_python_syntax_error_falls_back() -> None:

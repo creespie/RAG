@@ -66,4 +66,6 @@ class Chunk(MinimalSource):
 
 
 class IndexData(BaseModel):
+    """Chunks of the index, as saved in chunks.json."""
+
     chunks: list[Chunk]
