@@ -37,6 +37,36 @@ and 73.7% on code questions** (targets: 80% and 50%).
 `pyproject.toml` pins PyTorch to the CPU-only index, so `uv sync` does not
 download the CUDA libraries.
 
+### Disk space on campus machines
+
+The dependencies (CPU-only PyTorch, Transformers) and the model weights take
+about 3 GB, which does not fit in a small home directory. Before installing,
+point the caches to a larger local disk such as `/goinfre` (the exact path
+depends on the campus):
+
+```bash
+export UV_CACHE_DIR=/goinfre/$USER/uv_cache   # packages downloaded by uv
+export HF_HOME=/goinfre/$USER/hf_cache        # Qwen3-0.6B weights (~1.5 GB)
+export UV_LINK_MODE=copy                      # cache and project on different disks
+echo $UV_CACHE_DIR $HF_HOME $UV_LINK_MODE     # check
+```
+
+Add these lines to `~/.zshrc` (or `~/.bashrc`) to keep them in every new
+terminal, then open a new terminal or run `source ~/.zshrc`.
+
+If the home directory is still too small, the virtual environment can be
+moved as well:
+
+```bash
+export UV_PROJECT_ENVIRONMENT=/goinfre/$USER/rag_venv
+```
+
+or the whole repository can be cloned directly under `/goinfre`.
+
+`/goinfre` may be wiped between sessions: in that case `make install`
+reinstalls the dependencies and the model is downloaded again on the first
+`answer` command.
+
 ### Installation
 
 ```bash
@@ -383,6 +413,67 @@ uv run python -m src answer_dataset \
     --student_search_results_path data/output/search_results/UnansweredQuestions/dataset_docs_public.json \
     --save_directory data/output/search_results_and_answer/UnansweredQuestions
 ```
+## Evaluation workflow
+
+### Measuring recall
+
+After `index`, search both public datasets:
+
+```bash
+uv run python -m src search_dataset \
+    --dataset_path data/datasets/UnansweredQuestions/dataset_docs_public.json \
+    --k 10 --save_directory data/output/search_results/UnansweredQuestions
+uv run python -m src search_dataset \
+    --dataset_path data/datasets/UnansweredQuestions/dataset_code_public.json \
+    --k 10 --save_directory data/output/search_results/UnansweredQuestions
+```
+
+Then score them with the moulinette (official evaluation; results file
+first, ground-truth dataset second):
+
+```bash
+./moulinette evaluate_student_search_results \
+    data/output/search_results/UnansweredQuestions/dataset_docs_public.json \
+    data/datasets/AnsweredQuestions/dataset_docs_public.json \
+    --k 10 --max_context_length 2000
+./moulinette evaluate_student_search_results \
+    data/output/search_results/UnansweredQuestions/dataset_code_public.json \
+    data/datasets/AnsweredQuestions/dataset_code_public.json \
+    --k 10 --max_context_length 2000
+```
+
+The `evaluate` command computes the same recall with this project's own code
+and never calls the moulinette.
+
+### Diagnosing failed questions
+
+```bash
+uv run python -m src.evaluation <results.json> <answered_dataset.json> [k] [show]
+```
+
+Prints recall@1/3/5/10, the length of the reference and retrieved sources,
+the share of `.py` and `.md` results, the missed sources grouped by reason
+(file never retrieved, right file but wrong section, right chunk ranked after
+position k…) and the first `show` failed questions at cut-off `k`
+(defaults: 5 and 15), with their top results and IoU.
+
+### Running an experiment
+
+1. change one thing (chunking, tokenization, enrichment, `k1`, `b`…);
+2. rebuild the index with `index`;
+3. run both `search_dataset` commands and both moulinette commands;
+4. keep the change only if recall@5 improves, and record it in the
+   performance table.
+
+### Tests
+
+```bash
+uv run python -m pytest tests/
+```
+
+Unit tests of the chunkers: every chunk respects the size limit, the chunks
+of a file are contiguous and cover it entirely, and edge cases (syntax
+errors, null bytes, empty files, very long lines) do not crash.
 
 ## Resources
 
@@ -416,9 +507,7 @@ An AI assistant (Claude) was used as a tutor throughout the project:
   pointed out bugs and edge cases that I then fixed;
 - **code written by the assistant on request**, then read and adapted by me:
   the unit tests in `tests/`, the `try`/`except` fallback of the Python
-  chunker, the stopword list, `evaluation.py` (diagnosis and recall),
-  `headings.py`, `generator.py`, the `search_dataset`, `evaluate`, `answer`
-  and `answer_dataset` commands, the Makefile and a first draft of this
+  chunker, the stopword list, the Makefile and a first draft of this
   README;
 - **diagnosis**: interpreting the recall results and the failed questions to
   choose the next experiment.

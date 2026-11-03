@@ -133,7 +133,7 @@ def load_index(path: str) -> tuple[list[Chunk], bm25s.BM25]:
 
 
 def run_index(input_path: str, output_path: str, max_chunk_size: int,
-              k1: float = 1.2, b: float = 0.75) -> None:
+              k1: float = 1.2, b: float = 0.5) -> None:
     """Chunk the corpus, build the BM25 index and save it.
 
     Args:
