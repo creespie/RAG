@@ -1,91 +1,58 @@
-"""Turn a text into a list of searchable words."""
+# Common English function words: they appear mostly in prose (questions and
+# documentation) and say nothing about the topic.
+_ENGLISH: frozenset[str] = frozenset({
+    "a", "about", "above", "after", "again", "against", "also", "am", "an",
+    "are", "at",
+    "be", "because", "been", "before", "being", "below", "between", "both",
+    "but", "by",
+    "can", "could",
+    "did", "do", "does", "doing", "down", "during",
+    "each",
+    "few", "further",
+    "had", "has", "have", "having", "he", "her", "here", "hers", "herself",
+    "him", "himself", "his", "how",
+    "i", "into", "it", "its", "itself",
+    "just",
+    "may", "me", "might", "more", "most", "must", "my", "myself",
+    "of", "on", "once", "only", "other", "our", "ours", "ourselves", "over",
+    "own",
+    "same", "she", "should", "so", "some", "such",
+    "than", "that", "the", "their", "theirs", "them", "themselves", "then",
+    "there", "these", "they", "this", "those", "through", "to", "too",
+    "under", "until", "up",
+    "very",
+    "was", "we", "were", "what", "when", "where", "which", "who", "whom",
+    "why", "will", "would",
+    "you", "your", "yours", "yourself", "yourselves",
+})
 
-STOPWORDS: frozenset[str] = frozenset(
-    {
-        "a",
-        "about",
-        "after",
-        "all",
-        "also",
-        "an",
-        "any",
-        "are",
-        "at",
-        "be",
-        "been",
-        "being",
-        "but",
-        "by",
-        "can",
-        "could",
-        "did",
-        "do",
-        "does",
-        "doing",
-        "each",
-        "explain",
-        "had",
-        "has",
-        "have",
-        "having",
-        "he",
-        "her",
-        "here",
-        "his",
-        "how",
-        "i",
-        "into",
-        "it",
-        "its",
-        "itself",
-        "me",
-        "more",
-        "most",
-        "my",
-        "of",
-        "on",
-        "only",
-        "other",
-        "our",
-        "over",
-        "s",
-        "she",
-        "should",
-        "so",
-        "some",
-        "such",
-        "t",
-        "tell",
-        "than",
-        "that",
-        "the",
-        "their",
-        "them",
-        "then",
-        "there",
-        "these",
-        "they",
-        "this",
-        "those",
-        "through",
-        "to",
-        "very",
-        "was",
-        "we",
-        "were",
-        "what",
-        "when",
-        "where",
-        "which",
-        "who",
-        "whom",
-        "why",
-        "will",
-        "would",
-        "you",
-        "your",
-    }
-)
+# Pieces of English contractions split by the tokenizer
+# ("what's" -> "what", "s"; "don't" -> "don", "t").
+_CONTRACTIONS: frozenset[str] = frozenset({
+    "s", "t", "d", "ll", "m", "re", "ve", "don", "doesn", "isn", "aren",
+    "wasn", "weren", "can", "couldn", "shouldn", "won", "wouldn",
+})
+
+# Verbs typical of how questions are phrased, not of what they ask.
+_QUESTION_WORDS: frozenset[str] = frozenset({
+    "describe", "explain", "tell",
+})
+
+# English words that are also Python keywords. Frequent in questions, but
+# also in code, where removing them shortens code chunks: test this group
+# on its own and drop it if the code recall falls.
+_KEYWORD_LIKE: frozenset[str] = frozenset({
+    "and", "as", "for", "in", "is", "or", "with",
+})
+
+# Words about using things, present in most questions of this corpus.
+# Also a separate experiment.
+_USAGE: frozenset[str] = frozenset({
+    "use", "used", "uses", "using",
+})
+
+STOPWORDS: frozenset[str] = (_ENGLISH | _CONTRACTIONS | _QUESTION_WORDS
+                             | _KEYWORD_LIKE | _USAGE)
 
 
 def camel_to_words(st: str) -> list[str]:
@@ -175,4 +142,4 @@ def chunk_splitter(chunk: str) -> list[str]:
             i += 1
     if current_word:
         current_words.extend(word_to_sections(current_word))
-    return current_words
+    return [word for word in current_words if word not in STOPWORDS]

@@ -21,9 +21,9 @@ clean:
 	rm -rf .mypy_cache .pytest_cache
 
 lint:
-	uv run flake8 src/*
-	uv run mypy src/* $(MYPY_FLAGS)
+	uv run flake8 src/*.py
+	uv run mypy src/*.py $(MYPY_FLAGS)
 
 lint-strict:
-	uv run flake8 src/*
-	uv run mypy src/* --strict
+	uv run flake8 src/*.py
+	uv run mypy src/*.py --strict

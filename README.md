@@ -22,8 +22,8 @@ it to the model together with the question. The pipeline has four stages:
 
 Retrieval quality is measured with recall@k: for each question, the system
 must return the right **source locations** (file path and character range).
-On the public datasets it reaches **82.0% recall@5 on documentation questions
-and 73.7% on code questions** (targets: 80% and 50%).
+On the public datasets it reaches **88.0% recall@5 on documentation questions
+and 82.8% on code questions** (targets: 80% and 50%).
 
 ## Instructions
 
@@ -39,33 +39,33 @@ download the CUDA libraries.
 
 ### Disk space on campus machines
 
-The dependencies (CPU-only PyTorch, Transformers) and the model weights take
-about 3 GB, which does not fit in a small home directory. Before installing,
-point the caches to a larger local disk such as `/goinfre` (the exact path
-depends on the campus):
+The dependencies and the model weights do not fit in a small home directory.
+Before installing, point the caches to a larger local disk such as `/goinfre`
+(the exact path depends on the campus):
 
 ```bash
-export UV_CACHE_DIR=/goinfre/$USER/uv_cache   # packages downloaded by uv
-export HF_HOME=/goinfre/$USER/hf_cache        # Qwen3-0.6B weights (~1.5 GB)
-export UV_LINK_MODE=copy                      # cache and project on different disks
-echo $UV_CACHE_DIR $HF_HOME $UV_LINK_MODE     # check
+# packages downloaded by uv
+export UV_CACHE_DIR=/goinfre/$USER/uv_cache
+# Qwen3-0.6B weights, about 1.5 GB
+export HF_HOME=/goinfre/$USER/hf_cache
+# cache and project are on different disks
+export UV_LINK_MODE=copy
 ```
 
 Add these lines to `~/.zshrc` (or `~/.bashrc`) to keep them in every new
-terminal, then open a new terminal or run `source ~/.zshrc`.
+terminal, then open a new terminal or run `source ~/.zshrc`. When typing them
+directly in an interactive zsh, leave out the comment lines (or enable
+`setopt interactivecomments`).
 
-If the home directory is still too small, the virtual environment can be
-moved as well:
+If the home directory is still too small, the virtual environment can be moved
+as well, or the whole repository can be cloned under `/goinfre`:
 
 ```bash
 export UV_PROJECT_ENVIRONMENT=/goinfre/$USER/rag_venv
 ```
 
-or the whole repository can be cloned directly under `/goinfre`.
-
-`/goinfre` may be wiped between sessions: in that case `make install`
-reinstalls the dependencies and the model is downloaded again on the first
-`answer` command.
+`/goinfre` may be wiped between sessions: `make install` then reinstalls the
+dependencies, and the model is downloaded again by the first `answer` command.
 
 ### Installation
 
@@ -77,16 +77,22 @@ The vLLM repository must be placed in `data/raw/` (e.g.
 `data/raw/vllm-0.10.1/`) and the question datasets in `data/datasets/`.
 The `data/` folder is not part of the repository.
 
+The index must be built **from the project root with `--input_path data/raw`**:
+the file paths stored in the chunks are built from that argument, and the
+grader compares them verbatim with paths starting with `data/raw/`. If the
+corpus is stored elsewhere, link it instead of moving it:
+`ln -s /path/to/vllm-0.10.1 data/raw/vllm-0.10.1`.
+
 ### Makefile rules
 
-| Rule          | Description                                                 |
-|---------------|-------------------------------------------------------------|
-| `install`     | Install the dependencies with `uv sync`                     |
-| `run`         | Run the program; arguments go in `ARGS`                     |
-| `debug`       | Run the program under `pdb`; arguments go in `ARGS`         |
+| Rule          | Description                                                   |
+|---------------|---------------------------------------------------------------|
+| `install`     | Install the dependencies with `uv sync`                       |
+| `run`         | Run the program; arguments go in `ARGS`                       |
+| `debug`       | Run the program under `pdb`; arguments go in `ARGS`           |
 | `clean`       | Remove caches (`__pycache__`, `.mypy_cache`, `.pytest_cache`) |
-| `lint`        | `flake8` and `mypy` with the required flags                 |
-| `lint-strict` | `flake8` and `mypy --strict`                                |
+| `lint`        | `flake8` and `mypy` with the required flags                   |
+| `lint-strict` | `flake8` and `mypy --strict`                                  |
 
 Example: `make run ARGS="search 'how to configure lora' --k 5"`.
 
@@ -94,18 +100,20 @@ Example: `make run ARGS="search 'how to configure lora' --k 5"`.
 
 Every command is run as `uv run python -m src <command> [options]`.
 
-| Command          | Options (defaults)                                                        | Output |
-|------------------|---------------------------------------------------------------------------|--------|
+| Command          | Options (defaults)                                                              | Output |
+|------------------|---------------------------------------------------------------------------------|--------|
 | `index`          | `--max_chunk_size 2000` `--input_path data/raw` `--output_path data/processed` | index saved in `data/processed/` |
-| `search`         | `<query>` `--k 10` `--index_folder data/processed`                        | top-k sources printed |
-| `search_dataset` | `--dataset_path` `--save_directory` `--k 10` `--index_folder`              | `StudentSearchResults` JSON |
-| `answer`         | `<query>` `--k 5` `--index_folder` `--max_context_tokens 2000`            | answer and sources printed |
-| `answer_dataset` | `--student_search_results_path` `--save_directory` `--max_context_tokens 2000` | `StudentSearchResultsAndAnswer` JSON |
-| `evaluate`       | `--student_search_results_path` `--dataset_path`                         | recall@1/3/5/10 |
+| `search`         | `<query>` `--k 10` `--index_folder data/processed`                              | top-k sources printed |
+| `search_dataset` | `--dataset_path` `--save_directory` `--k 10` `--index_folder`                   | `StudentSearchResults` JSON |
+| `answer`         | `<query>` `--k 5` `--index_folder` `--max_context_tokens 2000`                  | answer and sources printed |
+| `answer_dataset` | `--student_search_results_path` `--save_directory` `--max_context_tokens 2000`  | `StudentSearchResultsAndAnswer` JSON |
+| `evaluate`       | `--student_search_results_path` `--dataset_path`                                | recall@1/3/5/10 |
 
 The output file of `search_dataset` and `answer_dataset` has the same name as
 the input file. `index` must be run before the other commands; otherwise they
-print `Index not found ..., run the index command first`.
+print `Index not found ..., run the index command first`. Invalid inputs
+(empty or nonsensical query, `k <= 0`, missing files, malformed JSON) print an
+`Error:` message and never a traceback.
 
 ## System architecture
 
@@ -115,7 +123,7 @@ data/raw/ ─► corpus ─► chunking ─► tokenizer ─► BM25 (bm25s) ─
                           ▲            ▲                         (bm25/ + chunks.json)
                        headings ───────┘                               │
                                                                        ▼
-question ─► tokenizer + stopwords ─► retriever ─► top-k sources ─► generator ─► answer
+question ─────────────► tokenizer ─► retriever ─► top-k sources ─► generator ─► answer
                                                       │              (Qwen3-0.6B)
                                                       └─► evaluation (recall@k)
 ```
@@ -126,7 +134,7 @@ question ─► tokenizer + stopwords ─► retriever ─► top-k sources ─�
 | `corpus.py`     | Lists the `.py`, `.md` and `.txt` files of the corpus (skipping hidden folders), in sorted order, and reads them as UTF-8, skipping unreadable files. |
 | `chunking.py`   | Splits a file into chunks: Python strategy, Markdown strategy and line-based fallback. |
 | `headings.py`   | Finds the Markdown section titles that contain each chunk. |
-| `tokenizer.py`  | Turns a text into a list of words; holds the stopword list. |
+| `tokenizer.py`  | Turns a text into a list of words, without stopwords; holds the stopword list. |
 | `indexer.py`    | Builds the chunks and the BM25 index, saves and loads them. |
 | `retriever.py`  | Returns the top-k chunks for a question. |
 | `evaluation.py` | IoU, recall@k and a diagnosis of the failed questions. |
@@ -189,7 +197,8 @@ questions (at search time), so that their words can match:
 2. for each one keep **the whole identifier** and **its parts**, split on
    underscores (`snake_case`) and on case changes (`camelCase`), keeping
    acronyms and digits together;
-3. lowercase everything; a word with nothing to split is kept only once.
+3. lowercase everything; a word with nothing to split is kept only once;
+4. remove the stopwords.
 
 | Text                     | Words                                      |
 |--------------------------|--------------------------------------------|
@@ -201,6 +210,24 @@ questions (at search time), so that their words can match:
 Keeping both forms lets a chunk be found both by a question that quotes an
 identifier verbatim and by one that paraphrases it, and makes the
 documentation (`--max-lora-rank`) meet the code (`max_lora_rank`).
+
+### Stopwords
+
+Stopwords are removed **from both the chunks and the questions**, inside the
+tokenizer, so both sides always go through the same filter. The list is
+hand-written and split into named groups: common English function words,
+pieces of contractions split by the tokenizer (`s`, `t`, `ll`…), verbs typical
+of questions (`explain`, `describe`), English words that are also Python
+keywords (`is`, `in`, `for`, `and`…) and words about usage (`use`, `using`).
+Words that are often identifiers in vLLM (`max`, `model`, `default`, `all`,
+`any`…) and the other Python keywords are not included.
+
+Removing them from the chunks too has two effects. Frequent words such as
+`is`, `in` or `use` are no longer looked up, so they stop adding small noise
+scores to thousands of chunks. And chunk lengths, used by BM25 length
+normalization, now count only content words, so prose is no longer penalised
+for being prose. A single list is used for every file type: the question has
+no file type, so two lists could not be applied consistently to both sides.
 
 ### Enriching the indexed text
 
@@ -215,13 +242,6 @@ returned to the grader is unchanged, but BM25 also sees:
 
 Words common to every path (`data`, `raw`, `vllm`) get an almost zero IDF and
 do no harm.
-
-### Stopwords
-
-Stopwords are removed **from the questions only**. BM25 only scores the words
-of the question, so stopwords left in the chunks are never looked up. The list
-is hand-written: common English function words are included, while words that
-are often identifiers in vLLM (`max`, `model`, `default`…) are not.
 
 ### BM25
 
@@ -254,7 +274,10 @@ of crashing.
 The retrieved sources are read back from the files (each file is read once and
 cached), formatted as `[Source N] <file path>` followed by their text, and
 added **best first** until a budget of 2000 tokens, counted with the model's
-own tokenizer. If no source is found, the model is not called at all and a
+own tokenizer. The budget only covers the context; the answer has its own
+limit of 256 new tokens. Qwen3-0.6B accepts far longer inputs, but a short
+context keeps generation fast on CPU and keeps the small model focused on the
+best sources. If no source is found, the model is not called at all and a
 fixed "could not find" answer is returned.
 
 ### Prompt strategy
@@ -293,42 +316,50 @@ not found.
 
 Each line adds one change to the previous one (`max_chunk_size = 2000`, `k = 10`).
 
-| Experiment                         | Docs R@5  | Code R@5  |
-|------------------------------------|-----------|-----------|
-| Baseline (`.py` and `.md` only)    | 74.0%     | 64.6%     |
-| + `.txt` files (`CMakeLists.txt`)  | 77.0%     | 64.6%     |
-| + words of the file path           | 79.0%     | **73.7%** |
-| + Markdown section titles          | **82.0%** | **73.7%** |
-| *Target*                           | *80%*     | *50%*     |
+| Experiment                               | Docs R@5  | Code R@5       |
+|------------------------------------------|-----------|----------------|
+| Baseline (`.py` and `.md` only)          | 74.0%     | 64.6%          |
+| + `.txt` files (`CMakeLists.txt`)        | 77.0%     | 64.6%          |
+| + words of the file path                 | 79.0%     | 73.7%          |
+| + Markdown section titles                | 82.0%     | 73.7%          |
+| + stopwords removed from chunks too      | 85.0%     | *not measured* |
+| + extended stopword list                 | **88.0%** | **82.8%**      |
+| *Target*                                 | *80%*     | *50%*          |
 
 Full results of the final version:
 
 | Dataset | Recall@1 | Recall@3 | Recall@5 | Recall@10 |
 |---------|----------|----------|----------|-----------|
-| Docs    | 0.620    | 0.760    | 0.820    | 0.880     |
-| Code    | 0.444    | 0.636    | 0.737    | 0.859     |
+| Docs    | 0.680    | 0.820    | 0.880    | 0.900     |
+| Code    | 0.495    | 0.717    | 0.828    | 0.879     |
 
 Observations:
 
 - `.txt` files were added after the diagnosis showed that some reference
   sources are in `CMakeLists.txt`, which could not be found at all.
-- The file path gave the largest gain on code questions: vLLM file and folder
+- The file path gave a large gain on code questions: vLLM file and folder
   names describe their content (`vllm/lora/peft_helper.py`) and questions often
   use those words.
 - Section titles only affect Markdown chunks, so they only improved
   documentation questions.
+- Removing stopwords from the chunks and extending the list improved both
+  datasets, code even more than documentation. The extended list stops
+  looking up words such as `is`, `in`, `for` and `use`, which appear in
+  thousands of code chunks and added noise scores to all of them. I expected
+  the Python-keyword group to hurt code questions by shortening code chunks;
+  the measures showed the opposite.
 - The average reference source is 1135 characters long and the average
   retrieved chunk 1044, so chunk size was not the bottleneck: most misses were
   "right file, wrong section".
 
 ### Speed
 
-| Step                                      | Time              |
-|-------------------------------------------|-------------------|
-| Chunking + tokenization of 1952 files     | ~6 s (35 565 chunks) |
-| `search_dataset`, 100 questions           | < 1 s             |
+| Step                                      | Time                    |
+|-------------------------------------------|-------------------------|
+| Chunking + tokenization of 1952 files     | ~6 s (35 565 chunks)    |
+| `search_dataset`, 100 questions           | < 1 s                   |
 | Loading Qwen3-0.6B (after the download)   | ~20 s, once per command |
-| `answer_dataset`, 100 questions (CPU)     | *TODO*            |
+| `answer_dataset`, 100 questions (CPU)     | *TODO*                  |
 
 Both limits are met with a wide margin: indexing must take at most 5 minutes,
 and 200 questions must be searched in at most 90 seconds.
@@ -339,14 +370,16 @@ and 200 questions must be searched in at most 90 seconds.
   a tiny chunk. BM25 length normalization favours them: the query
   `AsyncLLMEngine` returns 56-character import lines instead of the class
   definition. Grouping consecutive small nodes is the next planned improvement.
-- The documentation recall is only 2 points above the target, so a different
-  set of questions could fall below it.
+- Short, generic questions can be dominated by a frequent word: "how to
+  configure lora" returns logging chunks, because `configure` appears many
+  times in `VLLM_CONFIGURE_LOGGING`, while `lora` is in the path of every chunk
+  under `vllm/lora/`, which lowers its IDF.
 
 ## Design decisions
 
 - **Coordinates and searchable text are separate.** Chunking works on the
-  original text so that character ranges stay exact; normalization and
-  enrichment only change the words given to BM25.
+  original text so that character ranges stay exact; normalization,
+  stopword removal and enrichment only change the words given to BM25.
 - **Chunkers never open files.** The indexer reads each file once and passes
   the text; file reading happens in a single function, always in the same
   way, so offsets match between indexing and answer generation.
@@ -354,10 +387,9 @@ and 200 questions must be searched in at most 90 seconds.
   retrieval result.
 - **Lexical retrieval with BM25.** Fast, no model needed, and good at exact
   identifiers, which matter for questions about code.
-- **Data-driven choices.** File types, enrichment and prompt changes were
-  chosen by looking at failed questions with the diagnosis tool
-  (`python -m src.evaluation <results> <answered dataset>`) and kept only when
-  recall improved.
+- **Data-driven choices.** File types, enrichment, stopwords and prompt
+  changes were chosen by looking at failed questions with the diagnosis tool
+  (see *Evaluation workflow*) and kept only when recall improved.
 - **Errors never show a traceback.** Expected errors (missing files, malformed
   JSON, invalid `k`) print `Error: ...`; anything else prints
   `Unexpected error: ...`, so a bug is still distinguishable from a user
@@ -377,7 +409,10 @@ and 200 questions must be searched in at most 90 seconds.
   minimum chunk size.
 - **Disk space.** The default PyTorch wheel includes CUDA libraries and does
   not fit in a small home directory; the CPU-only index and moving the caches
-  (`UV_CACHE_DIR`, `HF_HOME`) to a larger disk solved it.
+  to `/goinfre` solved it.
+- **Stale index.** After changing the tokenizer, the index must be rebuilt; an
+  early stopword experiment gave identical numbers because the old index was
+  still in use.
 - **Hallucinations of a small model.** The first prompt produced
   contradictory answers and long copied code; stricter rules and a lower
   temperature fixed most of it.
@@ -413,6 +448,7 @@ uv run python -m src answer_dataset \
     --student_search_results_path data/output/search_results/UnansweredQuestions/dataset_docs_public.json \
     --save_directory data/output/search_results_and_answer/UnansweredQuestions
 ```
+
 ## Evaluation workflow
 
 ### Measuring recall
@@ -459,7 +495,8 @@ position k…) and the first `show` failed questions at cut-off `k`
 
 ### Running an experiment
 
-1. change one thing (chunking, tokenization, enrichment, `k1`, `b`…);
+1. change one thing (chunking, tokenization, stopwords, enrichment, `k1`,
+   `b`…);
 2. rebuild the index with `index`;
 3. run both `search_dataset` commands and both moulinette commands;
 4. keep the change only if recall@5 improves, and record it in the
@@ -507,9 +544,12 @@ An AI assistant (Claude) was used as a tutor throughout the project:
   pointed out bugs and edge cases that I then fixed;
 - **code written by the assistant on request**, then read and adapted by me:
   the unit tests in `tests/`, the `try`/`except` fallback of the Python
-  chunker, the stopword list, the Makefile and a first draft of this
-  README;
+  chunker, the stopword lists, `evaluation.py` (diagnosis and recall),
+  `headings.py`, `generator.py`, the `search_dataset`, `evaluate`, `answer`
+  and `answer_dataset` commands, the flake8 and mypy fixes, the Makefile and a
+  draft of this README;
 - **diagnosis**: interpreting the recall results and the failed questions to
-  choose the next experiment.
+  choose the next experiment. The decision to remove stopwords from the
+  chunks too, and the way to test it, came from my own question.
 
 All the code was read and understood before being used.
